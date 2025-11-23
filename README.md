@@ -1,182 +1,175 @@
-🧠 Multi-document Embedding Search Engine (with Caching)
+# 🔍 Multi-document Embedding Search Engine (with Caching)
 
 A lightweight semantic search engine that:
 
-Embeds multiple documents using Sentence Transformers
+- Embeds multiple documents with **Sentence Transformers**
+- Uses **content-hash caching** to avoid recomputing embeddings
+- Builds a **FAISS index** for fast nearest-neighbor search
+- Exposes both **Streamlit UI** and **FastAPI API**
+- Provides simple and transparent **search explanations**
 
-Uses content-based caching to avoid recomputing embeddings
+---
 
-Builds a FAISS vector index for fast similarity search
+## 📸 Preview
 
-Exposes Streamlit UI + FastAPI backend
+![Web App](Preview1.png)
+![Web App](Preview2.png)
 
-Provides transparent search explanations
+---
 
-🚀 Features
+## 🚀 Live Demo
 
-📄 Multi-document ingestion (data/docs/)
+🔗 **Live Streamlit App:**  
+[https://multi-document-embedding-search-engine-with-caching.streamlit.app/]
 
-⚡ Caching using per-document SHA-256 content hashes
+---
 
-🔎 Fast FAISS-based similarity search
-
-🧰 Clean modular structure (Embedder, CacheManager, SearchEngine)
-
-🌐 API + UI supported
-
-📦 Folder Structure
-.
-├── api.py                  # FastAPI server
-├── app.py                  # Streamlit UI
-├── embedder.py             # Embedding + caching logic
-├── search_engine.py        # FAISS index and search functions
-├── cache_manager.py        # Cache load, save, hashing
-├── embedding_cache.json    # Auto-generated cache
+## 📂 Folder Structure
+```
+├── api.py # FastAPI backend
+├── app.py # Streamlit UI
+├── embedder.py # Embedding + caching logic
+├── search_engine.py # FAISS index and search functions
+├── cache_manager.py # Handles hashing and embedding_cache.json
+├── embedding_cache.json # Auto-generated cache file
 ├── data/
-│   └── docs/               # Add your .txt documents here
+│ └── docs/ # Place your .txt documents here
 └── README.md
+```
 
-🧩 How Caching Works
+---
 
-Caching is handled entirely by CacheManager + Embedder.
+## ⚙️ How Caching Works
 
-🔍 Caching Workflow
+Caching is implemented using **SHA-256 hashes** of cleaned document content.
 
-Each document is cleaned and preprocessed.
+### 🔄 Caching Process
 
-Its cleaned text is hashed using SHA-256.
+1. Document text is cleaned (lowercasing, HTML removal, whitespace normalization).
+2. A **SHA-256 hash** of the cleaned text is generated.
+3. `embedding_cache.json` stores:
+   - `doc_id`
+   - `hash` (content hash)
+   - `embedding`
+   - `metadata` (filename, timestamp)
+4. When loading documents:
+   - If hash **matches** → **reuse embedding**
+   - If hash **differs** or absent → **regenerate embedding**
 
-Cache file: embedding_cache.json. Each entry includes:
+### ✅ Why this method?
 
-doc_id
+- Avoids re-running expensive embedding operations  
+- Auto-invalidates when file content changes  
+- JSON format is simple and version-friendly  
+- Fast and predictable
 
-hash (content hash)
+### 🔧 Forcing a regeneration
 
-embedding (vector)
+Delete the cache:
 
-metadata (filename + timestamp)
+```bash
+rm embedding_cache.json
+```
 
-When loading documents:
+# Multi-document Embedding Search Engine (with Caching)
 
-If a document's hash matches the cached hash → reuse embedding
+## 🧠 How to Run Embedding Generation
 
-If hash changes or no entry exists → regenerate embedding
+The system generates embeddings in three ways.
 
-✅ Benefits
-
-No unnecessary model calls
-
-Cache automatically invalidates when document content changes
-
-Simple, portable JSON-based cache
-
-📄 How to Run Embedding Generation
-
-There are three ways to generate embeddings:
-
-1. Manual generation (recommended during development)
+### 1. Manual Generation (recommended for debugging)
+```
 python -c "from embedder import Embedder; Embedder().process_documents()"
+```
 
-2. Streamlit autogeneration
-
-Running the UI automatically generates/reuses cached embeddings:
-
+### 2. Streamlit UI (auto generates embeddings)
+```
 streamlit run app.py
+```
 
-3. FastAPI autogeneration
-
-The API loads embeddings and builds FAISS index on startup:
-
+### 3. API Startup (auto generates embeddings)
+```
 uvicorn api:app --host 0.0.0.0 --port 8000
+```
 
-🌐 How to Start the API
+All three will:
+- Read documents from `data/docs/`
+- Check cache
+- Generate missing embeddings
+- Save the updated cache
 
-Start FastAPI server:
+---
 
+## 🌐 How to Start the API
+
+Start the FastAPI backend:
+```
 uvicorn api:app --host 0.0.0.0 --port 8000
+```
 
-API Endpoint
+### ➤ Endpoint: /search
 
-POST /search
+POST request:
+```json
+{
+  "query": "machine learning",
+  "top_k": 5
+}
+```
 
-Example request:
-curl -X POST "http://localhost:8000/search" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "machine learning", "top_k": 5}'
+Example CURL:
+```
+curl -X POST "http://localhost:8000/search"   -H "Content-Type: application/json"   -d '{"query": "deep learning", "top_k": 3}'
+```
 
-Example response:
-[
-  {
-    "doc_id": "doc1",
-    "score": 0.82,
-    "preview": "first few lines of the doc...",
-    "explanation": {
-      "overlap_tokens": ["learning", "model"],
-      "overlap_ratio": 0.22,
-      "why_this": "Document shares semantic and keyword similarity."
-    }
-  }
-]
+---
 
-🖥️ Start the Streamlit UI
+## 🖥️ How to Start the Streamlit UI
+```
 streamlit run app.py
+```
 
+The UI:
+- Loads embeddings (using caching)
+- Builds FAISS index
+- Lets you run semantic search interactively
 
-This loads embeddings (with caching) and builds the search interface.
+---
 
-🏗️ Design Choices
-1. Content-Hash Based Caching
+## 🧱 Design Choices
 
-Avoids re-computation by using SHA-256 hashes
+### 1. SHA-256 Content Hashing for Caching
+- Guarantees accurate invalidation
+- Simple and deterministic
+- Avoids timestamp inconsistencies
 
-JSON cache for transparency and debugging
+### 2. Sentence Transformer Model
+Default: `all-MiniLM-L6-v2`
+- Fast on CPU
+- Memory-efficient
+- High semantic quality
 
-Clear invalidation rules
+### 3. FAISS: IndexFlatIP
+- Cosine similarity (with normalized vectors)
+- Extremely fast nearest-neighbor search
+- Scalable and flexible
 
-2. Sentence-Transformer Model
+### 4. Search Explanation
+- Token overlap
+- Overlap ratio
+- Human-readable 'why this result'
 
-Default: all-MiniLM-L6-v2
-Chosen because:
+### 5. Modular Architecture
+- Embedder → preprocessing + embedding + caching
+- CacheManager → load/save cache
+- SearchEngine → FAISS search + explanations
+- api.py → backend
+- app.py → UI
 
-Fast
+---
 
-Lightweight (good for CPU)
-
-High semantic quality for small projects
-
-3. FAISS Index
-
-Used FAISS IndexFlatIP with vector normalization → Cosine similarity.
-Reasons:
-
-Extremely fast nearest neighbor search
-
-Swappable with GPU FAISS or vector DBs (Pinecone/Milvus)
-
-4. Transparent Search Explanation
-
-Instead of a heavy LLM explanation, the score explanation comes from:
-
-token overlap
-
-overlap ratio
-
-short “why this result” message
-
-5. Clean Modularity
-
-Embedder handles preprocessing + embeddings + caching
-
-CacheManager handles persistence
-
-SearchEngine handles FAISS + ranking + explanations
-
-api.py and app.py are thin wrappers
-
-🛠️ Requirements
-
-Add this as your requirements.txt:
-
+## 📦 Requirements
+```
 sentence-transformers
 faiss-cpu
 numpy
@@ -184,21 +177,24 @@ fastapi
 uvicorn
 pydantic
 streamlit
+```
 
-🧪 Troubleshooting
-Issue	Fix
-Cache not updating	Delete embedding_cache.json
-No documents found	Place .txt files in data/docs/
-Slow embedding generation	Use GPU or batch encoding
-Index returns no results	Ensure FAISS index is built on startup
-🎯 Future Enhancements (Optional)
+---
 
-Chunk-based document splitting
+## 🛠 Troubleshooting
 
-GPU FAISS index
+| Problem | Solution |
+|--------|----------|
+| Embeddings not updating | Delete `embedding_cache.json` |
+| No documents loaded | Add `.txt` files in `data/docs/` |
+| Slow embedding generation | Use GPU or batching |
+| FAISS index empty | Ensure `process_documents()` ran |
 
-Redis-based caching
+---
 
-Hybrid search (BM25 + vectors)
-
-LLM-based answer generation
+## 🚀 Optional Improvements
+- Document chunking
+- Hybrid BM25 + Vector search
+- GPU FAISS
+- Docker support
+- Redis/SQLite cache backend
